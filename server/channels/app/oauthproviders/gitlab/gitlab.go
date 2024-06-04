@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"strconv"
 	"strings"
 
 	"github.com/mattermost/mattermost/server/public/model"
@@ -20,7 +19,6 @@ type GitLabProvider struct {
 }
 
 type GitLabUser struct {
-	Id       int64  `json:"id"`
 	Username string `json:"username"`
 	Login    string `json:"login"`
 	Email    string `json:"email"`
@@ -34,11 +32,7 @@ func init() {
 
 func userFromGitLabUser(logger mlog.LoggerIFace, glu *GitLabUser) *model.User {
 	user := &model.User{}
-	username := glu.Username
-	if username == "" {
-		username = glu.Login
-	}
-	user.Username = model.CleanUsername(logger, username)
+
 	splitName := strings.Split(glu.Name, " ")
 	if len(splitName) == 2 {
 		user.FirstName = splitName[0]
@@ -49,8 +43,12 @@ func userFromGitLabUser(logger mlog.LoggerIFace, glu *GitLabUser) *model.User {
 	} else {
 		user.FirstName = glu.Name
 	}
-	user.Email = glu.Email
-	user.Email = strings.ToLower(user.Email)
+
+	user.Email = strings.ToLower(glu.Email)
+
+	emailComponents := strings.Split(user.Email, "@")
+	user.Username = model.CleanUsername(logger, emailComponents[0])
+
 	userId := glu.getAuthData()
 	user.AuthData = &userId
 	user.AuthService = model.UserAuthServiceGitlab
@@ -69,10 +67,6 @@ func gitLabUserFromJSON(data io.Reader) (*GitLabUser, error) {
 }
 
 func (glu *GitLabUser) IsValid() error {
-	if glu.Id == 0 {
-		return errors.New("user id can't be 0")
-	}
-
 	if glu.Email == "" {
 		return errors.New("user e-mail should not be empty")
 	}
@@ -81,7 +75,7 @@ func (glu *GitLabUser) IsValid() error {
 }
 
 func (glu *GitLabUser) getAuthData() string {
-	return strconv.FormatInt(glu.Id, 10)
+	return glu.Email
 }
 
 func (gp *GitLabProvider) GetUserFromJSON(c request.CTX, data io.Reader, tokenUser *model.User) (*model.User, error) {
@@ -105,5 +99,5 @@ func (gp *GitLabProvider) GetUserFromIdToken(_ request.CTX, idToken string) (*mo
 }
 
 func (gp *GitLabProvider) IsSameUser(_ request.CTX, dbUser, oauthUser *model.User) bool {
-	return dbUser.AuthData == oauthUser.AuthData
+	return dbUser.Email == oauthUser.Email
 }
