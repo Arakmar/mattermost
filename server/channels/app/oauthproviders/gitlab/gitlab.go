@@ -20,7 +20,7 @@ type GitLabProvider struct {
 }
 
 type GitLabUser struct {
-	Id       int64  `json:"id"`
+	Id       string `json:"id"`
 	Username string `json:"username"`
 	Login    string `json:"login"`
 	Email    string `json:"email"`
@@ -69,10 +69,6 @@ func gitLabUserFromJSON(data io.Reader) (*GitLabUser, error) {
 }
 
 func (glu *GitLabUser) IsValid() error {
-	if glu.Id == 0 {
-		return errors.New("user id can't be 0")
-	}
-
 	if glu.Email == "" {
 		return errors.New("user e-mail should not be empty")
 	}
